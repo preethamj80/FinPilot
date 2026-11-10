@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { background: var(--color-outer-bg); }
+  * { border-color: var(--color-border); }
+  body {
+    background: var(--color-outer-bg);
+    color: var(--color-text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.011em;
+  }
+  button, input, select, textarea { font: inherit; }
+  input, select, textarea {
+    color: var(--color-text-primary);
+    background-color: var(--color-secondary-bg);
+    border-color: var(--color-border);
+  }
+  input:focus, select:focus, textarea:focus {
+    background-color: var(--color-secondary-bg) !important;
+    color: var(--color-text-primary);
+  }
+  input::placeholder, textarea::placeholder { color: var(--color-text-secondary); opacity: .8; }
+  option { color: var(--color-text-primary); background: var(--color-card-bg); }
+  :focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+}
+
+.font-tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Glass & Card Elevation Utilities */
+.shadow-subtle {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+}
+
+.shadow-card {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+}
+
+.shadow-card-hover {
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.06), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #536358;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #819086;
+}
+
+/* Shared surfaces and controls. Utility classes retain layout while their
+   palette is supplied by tokens in tailwind.config.js. */
+.shadow-card, .shadow-subtle { box-shadow: var(--shadow-soft); }
+/* Legacy white-surface utilities now resolve to charcoal panels. */
+.bg-white { background-color: var(--color-card-bg); }
+.focus\:bg-white:focus { background-color: var(--color-secondary-bg); }
+.text-slate-200 { color: #D4D8D1; }
+.text-slate-300 { color: #A4B9A8; }
+.text-slate-400 { color: #A8B2AA; }
+.text-slate-700 { color: #C3CBC3; }
+.text-slate-800 { color: #E2DED4; }
+.text-slate-900 { color: var(--color-text-primary); }
+button { transition: background-color .18s ease, border-color .18s ease, color .18s ease; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+.bg-teal-600.text-white, .bg-teal-500.text-white,
+.bg-emerald-600.text-white, .bg-emerald-500.text-white,
+.bg-cyan-600.text-white, .bg-purple-600.text-white,
+[class*="from-teal-"].text-white {
+  color: #17221D;
+}
+table th { color: var(--color-text-secondary); }
+table td { color: var(--color-text-primary); }

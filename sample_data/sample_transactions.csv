@@ -1,0 +1,13 @@
+date,type,description,amount,category,notes
+2026-11-01,Income,Monthly Tech Company Salary,65000,Salary,Direct deposit
+2026-11-02,Expense,Apartment Rent Payment,14000,Rent,Monthly apartment lease
+2026-11-03,Expense,BigBasket Supermarket Grocery,3200,Groceries,Weekly provisions
+2026-11-04,Expense,Electricity Power Utility Bill,1450,Utilities,Monthly power consumption
+2026-11-05,Expense,Swiggy Gourmet Dinner Order,650,Food,Dinner with friends
+2026-11-06,Expense,Uber City Commute,320,Transport,Ride to office
+2026-11-07,Expense,Apollo Pharmacy Medical Supplies,480,Health,Prescription medicines
+2026-11-08,Expense,Amazon Online Retail Purchase,1850,Shopping,Noise cancelling earplugs
+2026-11-09,Expense,Netflix 4K Monthly Subscription,649,Subscriptions,Family entertainment plan
+2026-11-10,Expense,Zomato Weekend Lunch,520,Food,Weekend pizza delivery
+2026-11-12,Expense,Airtel Broadband Internet Recharge,999,Utilities,High-speed fiber connection
+2026-11-15,Income,Freelance UI Consulting Project,12500,Freelance,Milestone 2 deliverable
