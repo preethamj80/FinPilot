@@ -33,6 +33,11 @@ _IN_MEMORY_MODEL_CACHE: dict[str, Any] = {}
 MODEL_PATH = MODELS_DIR / "category_model.joblib"
 
 
+def _persist_models_locally() -> bool:
+    """Avoid writing models trained on hosted user records to Render's disk."""
+    return os.getenv("FINPILOT_ENV", "development").lower() != "production"
+
+
 def _compute_dataset_hash(df: pd.DataFrame) -> str:
     """Compute MD5 hash of training data to detect changes."""
     content = "|".join(
@@ -101,8 +106,9 @@ def train_or_load_categorizer(
     if not force_retrain and _IN_MEMORY_MODEL_CACHE.get("hash") == dataset_hash:
         return _IN_MEMORY_MODEL_CACHE["data"]
 
-    # 2. Check disk persistence
-    if not force_retrain and MODEL_PATH.exists():
+    # 2. Check disk persistence in local mode only. Hosted models are trained
+    # per request from that user's data and remain in memory for this process.
+    if _persist_models_locally() and not force_retrain and MODEL_PATH.exists():
         try:
             persisted = joblib.load(MODEL_PATH)
             if persisted.get("dataset_hash") == dataset_hash:
@@ -213,12 +219,14 @@ def train_or_load_categorizer(
         "trained_at": datetime.datetime.now().isoformat(),
     }
 
-    # Persist to disk
-    try:
-        MODELS_DIR.mkdir(parents=True, exist_ok=True)
-        joblib.dump(result_data, MODEL_PATH)
-    except Exception:
-        pass
+    # Persist locally for development, but never write a user-trained model to
+    # the hosted service's ephemeral filesystem.
+    if _persist_models_locally():
+        try:
+            MODELS_DIR.mkdir(parents=True, exist_ok=True)
+            joblib.dump(result_data, MODEL_PATH)
+        except Exception:
+            pass
 
     # Update in-memory cache
     _IN_MEMORY_MODEL_CACHE["hash"] = dataset_hash

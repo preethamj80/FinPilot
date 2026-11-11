@@ -1,6 +1,7 @@
 """Authentication router — register, login, logout, me, csrf-token."""
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
@@ -28,7 +29,7 @@ def _set_session_cookie(response: Response, session_id: str) -> None:
         value=session_id,
         httponly=True,
         samesite="lax",
-        secure=False,       # set True in production (HTTPS)
+        secure=os.getenv("FINPILOT_ENV", "development").lower() == "production",
         max_age=COOKIE_MAX_AGE,
         path="/",
     )

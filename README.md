@@ -6,7 +6,7 @@
 ---
 
 ## 1. Project Introduction
-**FinPilot** is a production-grade, local-first personal financial management web application developed to empower individuals with actionable financial intelligence, real-time guardrails, and deterministic cash-flow simulation. Built using Python, Streamlit, and Scikit-learn, FinPilot prioritizes user privacy by storing all sensitive records inside a local, embedded SQLite database—eliminating the need for third-party cloud data transmission or paid external API subscriptions.
+**FinPilot** is a local-first personal financial management web application developed to empower individuals with actionable financial intelligence, real-time guardrails, and deterministic cash-flow simulation. Local development and the Streamlit fallback store records in SQLite on the user's machine. An optional hosted React/FastAPI demo can use a separately provisioned Turso database; local records are not copied to that cloud database.
 
 FinPilot bridges the gap between conventional static expense trackers and advanced computational intelligence by combining deterministic financial mathematics (Safe-to-Spend pacing, recurring bill scheduling, scenario stress-testing) with chronologically validated statistical and machine-learning models (time-series baseline evaluation, TF-IDF + Random Forest categorization, multi-feature anomaly audit, and K-Means behavioral clustering).
 
@@ -52,7 +52,7 @@ Modern personal financial management poses critical behavioral and computational
   - CSRF Defense: Cryptographic double-submit `X-CSRF-Token` required on state-mutating requests
   - Brute-Force Rate Limiting: 5 attempts per 15-minute window with automated lockout
   - Multi-User Isolation: Strict `user_id` scoping across all transactions, budgets, bills, and settings
-- **Data Access:** SQLite3 (WAL mode, parameterized queries, unique multi-user constraints)
+- **Data Access:** SQLite3/WAL for local use; optional Turso SQL-over-HTTP DB-API for hosted use
 - **Machine Learning & Analytics:** Scikit-learn, Joblib, Pandas, NumPy
 
 ### Fallback Frontend (Streamlit)
@@ -157,6 +157,16 @@ Stored in `data/finance.db` with SQLite foreign keys enabled:
 4. `settings`
    - `setting_key` (TEXT PRIMARY KEY)
    - `setting_value` (TEXT NOT NULL)
+
+---
+
+## Optional Free Cloud Demo
+
+The root `render.yaml` and `Dockerfile` prepare one Render web service. Docker builds the React production bundle and FastAPI serves it from the same origin as `/api`, so the existing session cookie and CSRF flow do not depend on cross-origin browser requests. Local Vite development and SQLite defaults remain unchanged.
+
+Before creating the Render service, provision a **new, empty** Turso database and configure `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in Render's Environment settings. The FastAPI startup initializes FinPilot's current schema in that database. Do not point it at `data/finance.db` or run the SQLite file-based migration utility against Turso; this setup does not import local financial records. `FINPILOT_ENV=production` enables secure session cookies and prevents a missing cloud configuration from silently falling back to Render's temporary filesystem. Render's `RENDER_EXTERNAL_URL` is used for the allowed production Origin; set `PUBLIC_APP_ORIGIN` if you later add a custom domain.
+
+The free Render service can sleep after inactivity and its local filesystem is temporary, so all production records must remain in Turso. The free hosting setup is intended for a low-traffic demo and still needs a live Turso connection check after a cloud database is provisioned.
 
 ---
 

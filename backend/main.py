@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 # ── Project root on sys.path so src.* and utils.* resolve correctly ──
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -24,18 +26,19 @@ from backend.routers import auth, overview, transactions, budgets, coach, simula
 from backend.auth.csrf import CSRFMiddleware
 import src.database as _db
 
-# ── Lifespan: DB init + WAL mode ──
+# ── Lifespan: DB init + local SQLite WAL mode ──
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     _db.init_db()
-    from src.config import DB_PATH
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.close()
-    except Exception as exc:
-        print(f"[FinPilot] Warning: Could not enable WAL mode — {exc}")
+    if not _db.using_remote_database():
+        from src.config import DB_PATH
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.close()
+        except Exception as exc:
+            print(f"[FinPilot] Warning: Could not enable WAL mode — {exc}")
     yield
     # Shutdown (nothing needed)
 
@@ -53,13 +56,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ── CORS – only local dev origins, credentials enabled ──
-ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
-]
+# ── CORS: local Vite origins plus the exact deployed app origin ──
+ALLOWED_ORIGINS = []
+if os.getenv("FINPILOT_ENV", "development").lower() != "production":
+    ALLOWED_ORIGINS.extend([
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ])
+for _origin in (os.getenv("RENDER_EXTERNAL_URL"), os.getenv("PUBLIC_APP_ORIGIN")):
+    if _origin:
+        _parsed_origin = urlsplit(_origin.rstrip("/"))
+        if _parsed_origin.scheme == "https" and _parsed_origin.netloc and not _parsed_origin.path:
+            ALLOWED_ORIGINS.append(_origin.rstrip("/"))
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -115,3 +126,26 @@ app.include_router(simulator.router, prefix="/api")
 app.include_router(insights.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(budget_optimizer.router, prefix="/api")
+
+# Serve the Vite production build from the same origin when it is present.
+# In local development, Vite remains the frontend server and this route is absent.
+_FRONTEND_DIST = _PROJECT_ROOT / "frontend" / "dist"
+_FRONTEND_INDEX = _FRONTEND_DIST / "index.html"
+if _FRONTEND_INDEX.is_file():
+    from fastapi.responses import FileResponse
+
+    @app.get("/", include_in_schema=False)
+    @app.head("/", include_in_schema=False)
+    def serve_frontend_root():
+        return FileResponse(_FRONTEND_INDEX)
+
+    @app.get("/{frontend_path:path}", include_in_schema=False)
+    @app.head("/{frontend_path:path}", include_in_schema=False)
+    def serve_frontend(frontend_path: str):
+        if frontend_path == "api" or frontend_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API route not found")
+
+        requested_file = (_FRONTEND_DIST / frontend_path).resolve()
+        if _FRONTEND_DIST.resolve() in requested_file.parents and requested_file.is_file():
+            return FileResponse(requested_file)
+        return FileResponse(_FRONTEND_INDEX)

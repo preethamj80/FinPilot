@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sqlite3
 import json
+import os
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Generator
@@ -13,20 +14,57 @@ import src.config as config
 from src.config import DEFAULT_OPENING_BALANCE, DEFAULT_SAFETY_RESERVE, DEFAULT_MONTHLY_SAVINGS_TARGET
 
 
-def get_connection(custom_path: Path | str | None = None) -> sqlite3.Connection:
-    """Create and return a configured SQLite connection with foreign keys enabled."""
+def _turso_credentials() -> tuple[str, str] | None:
+    """Read remote DB credentials, requiring both values and no production fallback."""
+    url = os.getenv("TURSO_DATABASE_URL", "").strip()
+    token = os.getenv("TURSO_AUTH_TOKEN", "").strip()
+    if bool(url) != bool(token):
+        raise RuntimeError("Both TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must be configured.")
+    if url and token:
+        return url, token
+    if os.getenv("FINPILOT_ENV", "development").lower() == "production":
+        raise RuntimeError("Production requires a persistent Turso database; SQLite fallback is disabled.")
+    return None
+
+
+def using_remote_database(custom_path: Path | str | None = None) -> bool:
+    """Return whether the default backend connection is configured for Turso."""
+    return custom_path is None and _turso_credentials() is not None
+
+
+def get_connection(custom_path: Path | str | None = None, *, enable_foreign_keys: bool = True) -> Any:
+    """Create a SQLite or remote Turso connection with compatible named rows.
+
+    Supplying ``custom_path`` always selects SQLite, which keeps tests and local
+    callers isolated from any deployment environment variables.
+    """
+    if using_remote_database(custom_path):
+        import turso_serverless
+
+        url, token = _turso_credentials()  # type: ignore[misc]
+        conn = turso_serverless.connect(url, auth_token=token)
+        conn.row_factory = turso_serverless.Row
+        if enable_foreign_keys:
+            conn.execute("PRAGMA foreign_keys = ON")
+        return conn
+
     target_path = Path(custom_path) if custom_path else Path(config.DB_PATH)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(target_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    if enable_foreign_keys:
+        conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
 @contextmanager
-def get_db_connection(custom_path: Path | str | None = None) -> Generator[sqlite3.Connection, None, None]:
-    """Context manager that ensures the SQLite connection is committed and closed cleanly."""
-    conn = get_connection(custom_path)
+def get_db_connection(
+    custom_path: Path | str | None = None,
+    *,
+    enable_foreign_keys: bool = True,
+) -> Generator[Any, None, None]:
+    """Commit successful work and always close the selected database connection."""
+    conn = get_connection(custom_path, enable_foreign_keys=enable_foreign_keys)
     try:
         yield conn
         conn.commit()
@@ -35,6 +73,16 @@ def get_db_connection(custom_path: Path | str | None = None) -> Generator[sqlite
         raise
     finally:
         conn.close()
+
+
+@contextmanager
+def get_auth_db_connection() -> Generator[Any, None, None]:
+    """Use the historic SQLite auth connection behavior, with Turso constraints on."""
+    # Auth helpers historically opened plain sqlite3 connections without enabling
+    # foreign keys. Keep that behavior for local DB compatibility and enforce
+    # the declared constraints when using the cloud database.
+    with get_db_connection(enable_foreign_keys=using_remote_database()) as conn:
+        yield conn
 
 
 def init_db(custom_path: Path | str | None = None) -> None:
@@ -50,7 +98,8 @@ def init_db(custom_path: Path | str | None = None) -> None:
                 amount REAL NOT NULL CHECK(amount > 0),
                 category TEXT NOT NULL,
                 notes TEXT DEFAULT '',
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                user_id INTEGER DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS budgets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +116,8 @@ def init_db(custom_path: Path | str | None = None) -> None:
                 due_date TEXT NOT NULL,
                 paid INTEGER NOT NULL DEFAULT 0,
                 frequency TEXT NOT NULL DEFAULT 'One-time',
-                next_due_date TEXT DEFAULT ''
+                next_due_date TEXT DEFAULT '',
+                user_id INTEGER DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS settings (
                 setting_key TEXT PRIMARY KEY,
@@ -121,26 +171,30 @@ def init_db(custom_path: Path | str | None = None) -> None:
             """
         )
 
-        cursor = conn.cursor()
-        # Ensure user_id column on transactions, budgets, bills
-        for tbl in ("transactions", "budgets", "bills"):
-            t_cols = [r[1] for r in cursor.execute(f"PRAGMA table_info({tbl})").fetchall()]
-            if "user_id" not in t_cols:
-                conn.execute(f"ALTER TABLE {tbl} ADD COLUMN user_id INTEGER DEFAULT 0")
+        # Existing local SQLite databases keep their compatibility migrations.
+        # New cloud databases are initialized from the complete schema above.
+        if not using_remote_database(custom_path):
+            cursor = conn.cursor()
+            for tbl in ("transactions", "budgets", "bills"):
+                t_cols = [r[1] for r in cursor.execute(f"PRAGMA table_info({tbl})").fetchall()]
+                if "user_id" not in t_cols:
+                    conn.execute(f"ALTER TABLE {tbl} ADD COLUMN user_id INTEGER DEFAULT 0")
 
-        # Non-destructive migration for bills: ensure frequency and next_due_date columns exist
-        cols = [r[1] for r in cursor.execute("PRAGMA table_info(bills)").fetchall()]
-        if "frequency" not in cols:
-            conn.execute("ALTER TABLE bills ADD COLUMN frequency TEXT NOT NULL DEFAULT 'One-time'")
-        if "next_due_date" not in cols:
-            conn.execute("ALTER TABLE bills ADD COLUMN next_due_date TEXT DEFAULT ''")
+            cols = [r[1] for r in cursor.execute("PRAGMA table_info(bills)").fetchall()]
+            if "frequency" not in cols:
+                conn.execute("ALTER TABLE bills ADD COLUMN frequency TEXT NOT NULL DEFAULT 'One-time'")
+            if "next_due_date" not in cols:
+                conn.execute("ALTER TABLE bills ADD COLUMN next_due_date TEXT DEFAULT ''")
 
         # Indexes for query performance
         conn.execute("CREATE INDEX IF NOT EXISTS idx_txn_date ON transactions(txn_date)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_txn_type ON transactions(txn_type)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_txn_category ON transactions(category)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_txn_user ON transactions(user_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_budgets_month ON budgets(month)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_budgets_user ON budgets(user_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_bills_due ON bills(due_date)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_bills_user ON bills(user_id)")
 
         # Default settings
         defaults = {
@@ -153,6 +207,17 @@ def init_db(custom_path: Path | str | None = None) -> None:
                 "INSERT OR IGNORE INTO settings(setting_key, setting_value) VALUES (?, ?)",
                 (key, value),
             )
+
+
+def _read_sql_query(query: str, conn: Any, params: tuple[Any, ...] = ()) -> pd.DataFrame:
+    """Run a parameterized query through DB-API and construct a DataFrame.
+
+    pandas only guarantees direct DB-API support for sqlite3 connections; this
+    keeps the same query behavior for the Turso HTTP driver without SQLAlchemy.
+    """
+    cursor = conn.execute(query, params)
+    columns = [column[0] for column in (cursor.description or ())]
+    return pd.DataFrame.from_records([tuple(row) for row in cursor.fetchall()], columns=columns)
 
 
 # ---------------- Transactions ----------------
@@ -171,7 +236,7 @@ def add_transaction(txn_date: str, txn_type: str, description: str, amount: floa
 
 def get_transactions(custom_path: Path | str | None = None, user_id: int = 0) -> pd.DataFrame:
     with get_db_connection(custom_path) as conn:
-        return pd.read_sql_query(
+        return _read_sql_query(
             "SELECT id, txn_date, txn_type, description, amount, category, notes FROM transactions WHERE user_id=? ORDER BY txn_date DESC, id DESC",
             conn, params=(user_id,),
         )
@@ -198,15 +263,14 @@ def bulk_add_transactions(rows: list[tuple[str, str, str, float, str, str]],
     if not rows:
         return 0
     with get_db_connection(custom_path) as conn:
-        before = conn.total_changes
         # rows is (txn_date, txn_type, description, amount, category, notes)
         rows_with_user = [(*r, user_id) for r in rows]
-        conn.executemany(
+        cursor = conn.executemany(
             """INSERT INTO transactions(txn_date, txn_type, description, amount, category, notes, user_id)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             rows_with_user,
         )
-        return conn.total_changes - before
+        return max(int(cursor.rowcount), 0)
 
 
 # ---------------- Budgets ----------------
@@ -229,7 +293,7 @@ def get_budgets(month: str | None = None, custom_path: Path | str | None = None,
         params.append(month)
     query += " ORDER BY month DESC, category"
     with get_db_connection(custom_path) as conn:
-        return pd.read_sql_query(query, conn, params=tuple(params))
+        return _read_sql_query(query, conn, params=tuple(params))
 
 
 def delete_budget(budget_id: int, custom_path: Path | str | None = None, user_id: int = 0) -> None:
@@ -253,12 +317,15 @@ def add_bill(description: str, amount: float, due_date: str,
 
 def get_bills(custom_path: Path | str | None = None, user_id: int = 0) -> pd.DataFrame:
     with get_db_connection(custom_path) as conn:
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(bills)").fetchall()]
-        if "frequency" in cols and "next_due_date" in cols:
+        if using_remote_database(custom_path):
             query = "SELECT id, description, amount, due_date, paid, frequency, next_due_date FROM bills WHERE user_id=? ORDER BY due_date"
         else:
-            query = "SELECT id, description, amount, due_date, paid, 'One-time' AS frequency, '' AS next_due_date FROM bills WHERE user_id=? ORDER BY due_date"
-        return pd.read_sql_query(query, conn, params=(user_id,))
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(bills)").fetchall()]
+            if "frequency" in cols and "next_due_date" in cols:
+                query = "SELECT id, description, amount, due_date, paid, frequency, next_due_date FROM bills WHERE user_id=? ORDER BY due_date"
+            else:
+                query = "SELECT id, description, amount, due_date, paid, 'One-time' AS frequency, '' AS next_due_date FROM bills WHERE user_id=? ORDER BY due_date"
+        return _read_sql_query(query, conn, params=(user_id,))
 
 
 def mark_bill_paid(bill_id: int, paid: bool, custom_path: Path | str | None = None, user_id: int = 0) -> None:
