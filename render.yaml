@@ -6,7 +6,7 @@ services:
     branch: main
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    autoDeployTrigger: off
+    autoDeployTrigger: commit
     healthCheckPath: /api/health
     envVars:
       - key: FINPILOT_ENV

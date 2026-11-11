@@ -13,6 +13,48 @@ export function getCsrfToken() {
   return csrfToken;
 }
 
+function formatErrorDetail(detail) {
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => (typeof item === 'string' ? item : item?.msg || JSON.stringify(item)))
+      .filter(Boolean)
+      .join(', ');
+  }
+  if (detail && typeof detail === 'object') return JSON.stringify(detail);
+  return typeof detail === 'string' ? detail.trim() : '';
+}
+
+function httpErrorMessage(status, detail, url) {
+  const authEndpoint = url.includes('/api/auth/login') || url.includes('/api/auth/register');
+  const suffix = detail ? `: ${detail}` : '';
+
+  switch (status) {
+    case 400:
+      return `Invalid request (400)${suffix}`;
+    case 401:
+      if (authEndpoint && detail) return detail;
+      return detail ? `Authentication required (401): ${detail}` : 'Your session has expired. Please sign in again.';
+    case 403:
+      return detail
+        ? `Request blocked by CSRF or Origin protection (403): ${detail}`
+        : 'Request blocked by CSRF or Origin protection (403). Refresh the page and try again.';
+    case 500:
+      return detail
+        ? `Server error (500): ${detail}`
+        : 'The server encountered an internal error (500). Please try again later.';
+    case 502:
+      return detail
+        ? `Upstream service error (502): ${detail}`
+        : 'The server received an invalid response from an upstream service (502).';
+    case 504:
+      return detail
+        ? `Upstream request timed out (504): ${detail}`
+        : 'The server timed out while waiting for an upstream service (504).';
+    default:
+      return detail || `Request failed with status ${status}`;
+  }
+}
+
 async function request(url, options = {}) {
   const headers = {
     'Accept': 'application/json',
@@ -36,7 +78,20 @@ async function request(url, options = {}) {
     credentials: 'include', // Ensures finpilot_session cookie is sent
   };
 
-  const response = await fetch(url, config);
+  let response;
+  try {
+    response = await fetch(url, config);
+  } catch (cause) {
+    const error = new Error(
+      cause?.name === 'AbortError'
+        ? 'The request was cancelled.'
+        : 'Could not connect to the FinPilot API. Check your connection and try again.',
+      { cause }
+    );
+    error.status = null;
+    error.code = cause?.name === 'AbortError' ? 'REQUEST_ABORTED' : 'NETWORK_ERROR';
+    throw error;
+  }
 
   // If 401 Unauthorized, dispatch event for auth context
   if (response.status === 401 && !url.includes('/api/auth/login') && !url.includes('/api/auth/register')) {
@@ -46,25 +101,20 @@ async function request(url, options = {}) {
   if (!response.ok) {
     let errorDetail = '';
     try {
-      const errJson = await response.json();
-      errorDetail = errJson.detail || errJson.message || '';
-      if (Array.isArray(errorDetail)) {
-        errorDetail = errorDetail.map((e) => e.msg || e).join(', ');
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const errJson = await response.json();
+        errorDetail = formatErrorDetail(errJson.detail ?? errJson.message);
+      } else {
+        errorDetail = (await response.text()).trim();
       }
     } catch {
-      errorDetail = response.statusText || '';
+      errorDetail = '';
     }
 
-    if (!errorDetail || errorDetail === 'Internal Server Error' || errorDetail === 'Request failed') {
-      if (response.status === 500 || response.status === 502 || response.status === 504) {
-        errorDetail = 'Backend server is not running or unreachable. Please start the backend with .\\start_backend.ps1';
-      } else {
-        errorDetail = `Request failed with status ${response.status}`;
-      }
-    }
-
-    const error = new Error(errorDetail);
+    const error = new Error(httpErrorMessage(response.status, errorDetail, url));
     error.status = response.status;
+    error.code = `HTTP_${response.status}`;
     throw error;
   }
 
