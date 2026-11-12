@@ -3,6 +3,20 @@ import { api, setCsrfToken } from '../api/client';
 import { DEMO_MODE } from '../demo/demoMode';
 
 const AuthContext = createContext(null);
+const DEMO_PROTECTED_PATHS = new Set([
+  '/',
+  '/transactions',
+  '/budgets',
+  '/budget-optimizer',
+  '/coach',
+  '/simulator',
+  '/insights',
+  '/settings',
+]);
+
+function createDemoUser() {
+  return { full_name: 'Alex Morgan', username: 'Demo account', email: 'Not collected', is_demo: true };
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -12,9 +26,10 @@ export function AuthProvider({ children }) {
   // Check existing session on mount
   const checkSession = useCallback(async () => {
     if (DEMO_MODE) {
-      setUser(null);
+      const demoUser = DEMO_PROTECTED_PATHS.has(window.location.pathname) ? createDemoUser() : null;
+      setUser(demoUser);
       setLoading(false);
-      return null;
+      return demoUser;
     }
     try {
       const userData = await api.get('/api/auth/me');
@@ -38,7 +53,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (DEMO_MODE) {
-      setLoading(false);
+      checkSession();
       return undefined;
     }
     checkSession();
@@ -105,7 +120,7 @@ export function AuthProvider({ children }) {
   };
 
   const enterDemo = () => {
-    const demoUser = { full_name: 'Alex Morgan', username: 'Demo account', email: 'Not collected', is_demo: true };
+    const demoUser = createDemoUser();
     setUser(demoUser);
     setAuthError(null);
     return demoUser;

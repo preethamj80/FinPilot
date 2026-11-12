@@ -250,7 +250,7 @@ export default function Transactions() {
             Export CSV
           </button>
           <button
-            onClick={openAddTx}
+            onClick={() => openAddTx('Expense')}
             className="px-5 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-teal-700/20 active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
