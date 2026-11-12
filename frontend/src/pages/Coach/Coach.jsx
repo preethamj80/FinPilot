@@ -12,6 +12,7 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { api } from '../../api/client';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import DemoNotice from '../../components/common/DemoNotice';
 
 export default function Coach() {
   const { refreshTrigger, triggerRefresh } = useFinance();
@@ -62,6 +63,7 @@ export default function Coach() {
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
               Friendly, evidence-backed advice to optimize savings and cut unnecessary expenses.
             </p>
+            <DemoNotice ai compact className="mt-3" />
           </div>
         </div>
 

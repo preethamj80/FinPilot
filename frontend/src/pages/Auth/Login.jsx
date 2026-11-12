@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import AuthBrandShowcase from '../../components/auth/AuthBrandShowcase';
 import BrandLogo from '../../components/common/BrandLogo';
+import DemoNotice from '../../components/common/DemoNotice';
+import { DEMO_MODE } from '../../demo/demoMode';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -13,7 +15,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login } = useAuth();
+  const { login, enterDemo } = useAuth();
   const { notify } = useFinance();
   const navigate = useNavigate();
 
@@ -36,6 +38,12 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExploreDemo = () => {
+    enterDemo();
+    notify('You are exploring FinPilot with synthetic demo data.', 'success');
+    navigate('/');
   };
 
   return (
@@ -85,6 +93,21 @@ export default function Login() {
             )}
 
             {/* Login Form */}
+            {DEMO_MODE ? (
+              <div className="space-y-4">
+                <DemoNotice className="mb-5" />
+                <button
+                  type="button"
+                  onClick={handleExploreDemo}
+                  className="w-full py-3.5 px-5 rounded-2xl bg-[var(--color-gold)] hover:brightness-105 text-[#17221D] font-bold text-sm shadow-md active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  Explore Demo <ArrowRight className="w-4 h-4" />
+                </button>
+                <p className="text-center text-xs text-slate-500">
+                  No account or credentials needed. Try the sample dashboard and tools.
+                </p>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Email Field */}
               <div>
@@ -150,18 +173,21 @@ export default function Login() {
                 </button>
               </div>
             </form>
+            )}
           </div>
 
           {/* Bottom Switcher */}
-          <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-500">
-            Don't have an account yet?{' '}
-            <Link
-              to="/register"
-              className="font-bold text-teal-600 hover:text-teal-700 hover:underline inline-flex items-center gap-0.5"
-            >
-              Create an account
-            </Link>
-          </div>
+          {!DEMO_MODE && (
+            <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-500">
+              Don't have an account yet?{' '}
+              <Link
+                to="/register"
+                className="font-bold text-teal-600 hover:text-teal-700 hover:underline inline-flex items-center gap-0.5"
+              >
+                Create an account
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* ─────────────────────────────────────────────────────────────

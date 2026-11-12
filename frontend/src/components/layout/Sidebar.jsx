@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import BrandLogo from '../common/BrandLogo';
+import { DEMO_MODE } from '../../demo/demoMode';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Overview', icon: LayoutDashboard },
@@ -110,7 +111,7 @@ export default function Sidebar({ isOpen, onClose }) {
             <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0" />
             <span>Secure Offline Vault</span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-500">FastAPI backend · Local SQLite</p>
+          <p className="mt-1 text-[11px] text-slate-500">{DEMO_MODE ? 'Synthetic data · session only' : 'FastAPI backend · Local SQLite'}</p>
         </div>
       </aside>
     </>

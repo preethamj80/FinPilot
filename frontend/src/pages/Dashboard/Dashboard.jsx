@@ -33,6 +33,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api/client';
 import { formatCurrency, getCategoryColorMap } from '../../utils/categories';
+import DemoNotice from '../../components/common/DemoNotice';
 
 export default function Dashboard() {
   const { refreshTrigger, openAddTx, filterByCategory } = useFinance();
@@ -188,7 +189,7 @@ export default function Dashboard() {
             <PieChartIcon className="w-4 h-4" /> Create Budget
           </button>
           <button
-            onClick={() => navigate('/bills')}
+            onClick={() => navigate('/budgets')}
             className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-xl hover:bg-cyan-500 transition"
           >
             <Receipt className="w-4 h-4" /> Add Bill
@@ -205,6 +206,7 @@ export default function Dashboard() {
             <h2 className="text-xl font-semibold text-[var(--color-primary-violet)] mb-3">
               Your AI Money Coach
             </h2>
+            <DemoNotice ai compact className="mb-3" />
             <p className="text-sm text-[var(--color-text-secondary)] mb-4">
               {greeting}, here’s a quick look at your finances.
             </p>
@@ -389,7 +391,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-medium text-[var(--color-primary-violet)]">Upcoming Bills</h2>
               <button
-                onClick={() => navigate('/bills')}
+                onClick={() => navigate('/budgets')}
                 className="text-sm text-[var(--color-primary-violet)] hover:underline"
               >
                 View all

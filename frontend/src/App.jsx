@@ -5,6 +5,7 @@ import { FinanceProvider } from './context/FinanceContext';
 import Layout from './components/layout/Layout';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import OnboardingModal from './components/onboarding/OnboardingModal';
+import { DEMO_MODE } from './demo/demoMode';
 
 // Pages
 import Login from './pages/Auth/Login';
@@ -117,11 +118,11 @@ export default function App() {
             />
             <Route
               path="/register"
-              element={
+              element={DEMO_MODE ? <Navigate to="/login" replace /> : (
                 <PublicRoute>
                   <Register />
                 </PublicRoute>
-              }
+              )}
             />
 
             {/* Protected App Routes */}

@@ -12,6 +12,7 @@ import {
 import { api } from '../../api/client';
 import { formatCurrency, getCategoryColorMap } from '../../utils/categories';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import DemoNotice from '../../components/common/DemoNotice';
 
 export default function Insights() {
   const [activeTab, setActiveTab] = useState('forecast');
@@ -95,6 +96,7 @@ export default function Insights() {
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             See your projected expenses for next month, spot unusual transactions, and explore your spending habits.
           </p>
+          <DemoNotice ai compact className="mt-3" />
         </div>
 
         {/* Tab Switcher */}

@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 // ProfileDropdown import removed – using inline user display
 import NotificationIcon from '../common/NotificationIcon';
+import { DEMO_MODE } from '../../demo/demoMode';
 
 export default function Navbar({ onMenuClick }) {
   const { user, logout } = useAuth();
@@ -44,7 +45,7 @@ export default function Navbar({ onMenuClick }) {
           <span className="text-slate-400">·</span>
           <span className="inline-flex items-center gap-1 text-teal-300 bg-teal-700/20 px-2 py-0.5 rounded-full border border-teal-600/60 text-[11px]">
             <ShieldCheck className="w-3 h-3 text-teal-400" />
-            Live Vault Active
+            {DEMO_MODE ? 'Demo Mode · Sample data' : 'Live Vault Active'}
           </span>
         </div>
       </div>

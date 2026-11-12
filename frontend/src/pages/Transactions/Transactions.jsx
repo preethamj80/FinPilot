@@ -18,6 +18,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { api } from '../../api/client';
 import { formatCurrency, getCategoryColorMap, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES } from '../../utils/categories';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { DEMO_MODE } from '../../demo/demoMode';
 
 export default function Transactions() {
   const { refreshTrigger, triggerRefresh, openAddTx, selectedCategoryFilter, filterByCategory, notify } = useFinance();
@@ -94,7 +95,7 @@ export default function Transactions() {
   }, [refreshTrigger, search, txnType, selectedCategoryFilter, startDate, endDate, page]);
 
   // Handle CSV Export
-  const handleExport = () => {
+  const handleExport = async () => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (txnType !== 'All') params.append('txn_type', txnType);
@@ -102,6 +103,23 @@ export default function Transactions() {
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
 
+    if (DEMO_MODE) {
+      try {
+        const result = await api.get(`/api/transactions?${params.toString()}`);
+        const fields = ['txn_date', 'txn_type', 'description', 'amount', 'category', 'notes'];
+        const quote = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+        const csv = [fields.join(','), ...result.data.map((row) => fields.map((field) => quote(row[field])).join(','))].join('\r\n');
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+        link.download = 'finpilot-demo-transactions.csv';
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(link.href), 0);
+        notify('Synthetic demo transactions exported locally.', 'success');
+      } catch (err) {
+        notify(err.message || 'Unable to export demo transactions.', 'error');
+      }
+      return;
+    }
     window.open(`/api/transactions/export-csv?${params.toString()}`, '_blank');
     notify('Export started — downloading CSV file.', 'success');
   };
@@ -110,6 +128,11 @@ export default function Transactions() {
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (DEMO_MODE) {
+      notify('CSV import is unavailable in the frontend-only demo. Add sample transactions with the form instead.', 'warning');
+      e.target.value = '';
+      return;
+    }
     setImportFile(file);
     setImporting(true);
 

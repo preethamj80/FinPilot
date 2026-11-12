@@ -3,6 +3,7 @@ import { Sparkles, ArrowRight, Check, X, Wallet, TrendingUp, PiggyBank, PieChart
 import { api } from '../../api/client';
 import { useFinance } from '../../context/FinanceContext';
 import { DEFAULT_EXPENSE_CATEGORIES } from '../../utils/categories';
+import { DEMO_MODE } from '../../demo/demoMode';
 
 export default function OnboardingModal() {
   const { triggerRefresh, notify } = useFinance();
@@ -18,6 +19,7 @@ export default function OnboardingModal() {
   const [firstBudgetLimit, setFirstBudgetLimit] = useState('');
 
   useEffect(() => {
+    if (DEMO_MODE) return;
     // Check if onboarding completed for this user
     const completed = localStorage.getItem('finpilot_onboarding_completed');
     if (!completed) {
@@ -77,7 +79,7 @@ export default function OnboardingModal() {
     setIsOpen(false);
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || DEMO_MODE) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs">

@@ -1,3 +1,6 @@
+import { DEMO_MODE } from '../demo/demoMode';
+import { demoRequest } from '../demo/demoApi';
+
 /**
  * FinPilot Central API Client
  * Manages HTTP requests with session cookie credentials and CSRF tokens.
@@ -56,6 +59,11 @@ function httpErrorMessage(status, detail, url) {
 }
 
 async function request(url, options = {}) {
+  // The frontend-only Vercel demo is deliberately isolated from every backend.
+  if (DEMO_MODE) {
+    return demoRequest(url, options);
+  }
+
   const headers = {
     'Accept': 'application/json',
     ...(options.headers || {}),

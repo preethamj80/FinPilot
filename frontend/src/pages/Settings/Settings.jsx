@@ -16,6 +16,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { api } from '../../api/client';
 import { DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES } from '../../utils/categories';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { DEMO_MODE } from '../../demo/demoMode';
 
 export default function Settings() {
   const { user } = useAuth();
@@ -216,7 +217,7 @@ export default function Settings() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           {/* Demo Data Card */}
-          <div className="p-4 rounded-xl border border-slate-100 bg-slate-50 space-y-2 flex flex-col justify-between">
+          {!DEMO_MODE && <div className="p-4 rounded-xl border border-slate-100 bg-slate-50 space-y-2 flex flex-col justify-between">
             <div>
               <div className="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
                 <RefreshCw className="w-4 h-4 text-teal-600" /> Load Demo Financial Records
@@ -233,16 +234,18 @@ export default function Settings() {
             >
               {loadingDemo ? 'Populating...' : 'Populate Demo Data'}
             </button>
-          </div>
+          </div>}
 
           {/* Reset Card */}
           <div className="p-4 rounded-xl border border-rose-100 bg-rose-50/40 space-y-2 flex flex-col justify-between">
             <div>
               <div className="font-bold text-rose-800 mb-1 flex items-center gap-1.5">
-                <Trash2 className="w-4 h-4 text-rose-600" /> Clear Financial History
+                <Trash2 className="w-4 h-4 text-rose-600" /> {DEMO_MODE ? 'Restore Demo Samples' : 'Clear Financial History'}
               </div>
               <p className="text-rose-700/80 leading-relaxed">
-                Permanently delete all transactions, budgets, and bills for your account. Settings are preserved.
+                {DEMO_MODE
+                  ? 'Restore the original synthetic examples for this browser session. No account or database is affected.'
+                  : 'Permanently delete all transactions, budgets, and bills for your account. Settings are preserved.'}
               </p>
             </div>
             <button
@@ -250,7 +253,7 @@ export default function Settings() {
               onClick={() => setShowResetModal(true)}
               className="mt-3 px-4 py-2 bg-white border border-rose-300 hover:bg-rose-600 hover:text-white text-rose-700 rounded-xl font-bold transition-all cursor-pointer"
             >
-              Reset My Records...
+              {DEMO_MODE ? 'Restore Sample Dataset...' : 'Reset My Records...'}
             </button>
           </div>
         </div>
@@ -263,10 +266,11 @@ export default function Settings() {
             <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mb-3">
               <AlertTriangle className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold text-slate-900 mb-1">Permanent Data Reset</h3>
+            <h3 className="text-base font-bold text-slate-900 mb-1">{DEMO_MODE ? 'Restore Demo Samples' : 'Permanent Data Reset'}</h3>
             <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-              This will permanently delete all transactions, budgets, and scheduled bills associated with your account.
-              Please type <span className="font-bold text-rose-600">RESET</span> to confirm.
+              {DEMO_MODE
+                ? <>This replaces only the current in-memory examples with the original synthetic dataset. Refreshing the browser also resets the demo. Type <span className="font-bold text-rose-600">RESET</span> to confirm.</>
+                : <>This will permanently delete all transactions, budgets, and scheduled bills associated with your account. Please type <span className="font-bold text-rose-600">RESET</span> to confirm.</>}
             </p>
             <input
               type="text"
@@ -292,7 +296,7 @@ export default function Settings() {
                 disabled={resetConfirmInput.trim().toUpperCase() !== 'RESET' || resetting}
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold disabled:opacity-30 cursor-pointer"
               >
-                {resetting ? 'Resetting...' : 'Yes, Delete All'}
+                {resetting ? 'Resetting...' : DEMO_MODE ? 'Restore Samples' : 'Yes, Delete All'}
               </button>
             </div>
           </div>

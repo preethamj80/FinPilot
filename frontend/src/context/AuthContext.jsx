@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api, setCsrfToken } from '../api/client';
+import { DEMO_MODE } from '../demo/demoMode';
 
 const AuthContext = createContext(null);
 
@@ -10,6 +11,11 @@ export function AuthProvider({ children }) {
 
   // Check existing session on mount
   const checkSession = useCallback(async () => {
+    if (DEMO_MODE) {
+      setUser(null);
+      setLoading(false);
+      return null;
+    }
     try {
       const userData = await api.get('/api/auth/me');
       setUser(userData);
@@ -31,6 +37,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    if (DEMO_MODE) {
+      setLoading(false);
+      return undefined;
+    }
     checkSession();
 
     const handleUnauthorized = () => {
@@ -43,6 +53,9 @@ export function AuthProvider({ children }) {
   }, [checkSession]);
 
   const login = async (email, password) => {
+    if (DEMO_MODE) {
+      return enterDemo();
+    }
     setAuthError(null);
     try {
       const data = await api.post('/api/auth/login', { email, password });
@@ -58,6 +71,9 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (fullName, email, password, confirmPassword) => {
+    if (DEMO_MODE) {
+      throw new Error('Real account registration is disabled in Demo Mode.');
+    }
     setAuthError(null);
     try {
       const data = await api.post('/api/auth/register', {
@@ -79,13 +95,20 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await api.post('/api/auth/logout');
+      if (!DEMO_MODE) await api.post('/api/auth/logout');
     } catch {
       // Ignore network errors on logout
     } finally {
       setUser(null);
       setCsrfToken(null);
     }
+  };
+
+  const enterDemo = () => {
+    const demoUser = { full_name: 'Alex Morgan', username: 'Demo account', email: 'Not collected', is_demo: true };
+    setUser(demoUser);
+    setAuthError(null);
+    return demoUser;
   };
 
   return (
@@ -97,8 +120,10 @@ export function AuthProvider({ children }) {
         isAuthenticated: !!user,
         login,
         register,
+        enterDemo,
         logout,
         checkSession,
+        demoMode: DEMO_MODE,
       }}
     >
       {children}

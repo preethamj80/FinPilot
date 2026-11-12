@@ -12,6 +12,7 @@ import { api } from '../../api/client';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency } from '../../utils/categories';
+import DemoNotice from '../../components/common/DemoNotice';
 
 const surface = 'rounded-2xl border border-[var(--color-border)] bg-[var(--color-card-bg)] shadow-card';
 const primaryButton = 'inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--color-gold)] px-4 py-2.5 text-sm font-bold text-[#17221D] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50';
@@ -163,6 +164,7 @@ export default function BudgetOptimizer() {
             <p className="mt-1 max-w-2xl text-sm text-[var(--color-text-secondary)]">
               A transparent spending heuristic based on completed transaction history and existing budgets, with current unpaid bills surfaced for review.
             </p>
+            <DemoNotice ai compact className="mt-3 max-w-2xl" />
           </div>
         </div>
         <div className="flex w-full flex-col gap-2 sm:max-w-xs">
